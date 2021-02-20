@@ -20,13 +20,6 @@
 		padding:0px;margin:0px auto;
 		border-bottom:1px solid #000000;
 	}
-	div.limit{
-		width: 100%;height: 100%;
-		padding:0px;margin:0px auto;
-	}
-	.limit iframe{
-		width: 100%;height: 100%;
-	}
 	td.ly{
 		font-size:25px;
 		text-align:center;
@@ -114,12 +107,15 @@
 	}
 	.jp{
 		display:block;
+		overflow:hidden;
 	}
 	.yo{
 		display:none;
+		overflow:hidden;
 	}
 	.cn{
 		display:block;
+		overflow:hidden;
 	}
 /*-------------------------------------------------------客製化按鈕*/
 	#jpcly{
@@ -137,6 +133,13 @@
 	#cnly{
 		display:none;margin:0px auto;
 		background-color:#aaaaaa;
+	}
+/*-------------------------------------------------------影片進度按鈕*/
+	.play{
+		position:relative;left:80%;
+	}
+	.pause{
+		position:relative;left:80%;	
 	}
 </style>
 <!------------------------------------------------------------初始化-->
@@ -271,10 +274,19 @@
 	function package(obj){
 		html_ps=document.getElementById(obj).innerHTML;
 		styleChange();
+		addtimebtn();
 		html_ns=document.getElementById(obj).innerHTML;
 		document.getElementById(obj).innerHTML=html_ns;
 		addLostEvent1();
 		flag3=true;
+	}
+	function addtimebtn(){
+		for (var i=1; i<=counter; i++){
+			addObject("LYct"+i,"button","play","play"+i,"play",non);
+		}
+		for (var i=1; i<=counter; i++){
+			addObject("LYct"+i,"button","pause","pause"+i,"pause",non);
+		}
 	}
 	function styleChange(){
 		for (var i=1; i<=counter; i++){
@@ -284,6 +296,7 @@
 	function addLostEvent1(){
 		for (var i=1; i<=counter; i++){
 			addSpeakEvent(i);
+			addPauseEvent(i);
 		}
 		document.getElementById("owari").style="display:none;";
 		document.getElementById("lineup").style="display:none;";
@@ -295,8 +308,13 @@
 		document.getElementById("cnly").style="display:block;";
 	}
 	function addSpeakEvent(number) {
-		document.getElementById("LYct"+number).addEventListener('click',function (){
-			
+		document.getElementById("play"+number).addEventListener('click',function (){
+			setCurrentTime(number);
+		});
+	}
+	function addPauseEvent(number) {
+		document.getElementById("pause"+number).addEventListener('click',function (){
+			player.pauseVideo();
 		});
 	}
 /*-------------------------------------------------------------編輯歌詞*/
@@ -355,36 +373,73 @@
 		}return stdin;
 	}
 /*-------------------------------------------------------------*/
-/*-------------------------------------------------------------影片*/
-	var pslink="";var timearr=[0];
+/*-------------------------------------------------------------Youtube-API*/
+	var player;
+	var tag = document.createElement('script');
+	tag.src = "https://www.youtube.com/iframe_api";
+	var firstScriptTag = document.getElementsByTagName('script')[0];
+	firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+	function onYouTubeIframeAPIReady(id) {
+		player = new YT.Player("player", {
+			height:"100%", 
+			width:"100%", 
+			videoId:id,
+		});
+	}
+	function setCurrentTime(slideNum) {
+		if(isNaN(timearr[slideNum])==true){return;}
+		player.seekTo(timearr[slideNum],true);
+		player.playVideo();
+	}
+/*-------------------------------------------------------------播放器*/
+	var pslink="";var timearr=["秒數"];
 	function srcin(){
-		pslink=prompt("輸入YouTube網址","");
+		pslink=prompt("輸入YouTube影片id","");
 		if(pslink==null || pslink==""){return;}
-		iframeRefresh(0);
+		if(urlcut(pslink)=="invalid"){alert("無效的網址格式");return;}
+		addObject("video","div","none","player","",non);
+		onYouTubeIframeAPIReady(urlcut(pslink));
 		document.getElementById("vidop").style="display:none;";
 		document.getElementById("vided").style="display:block;";
 		flag2=true;
 	}
-	function iframeRefresh(time){
-		var link=pslink+ "?start=" + time + "&autoplay=1&loop=1";
-		document.getElementById("iframeVideo").src=link;
-	}
 	function srcremove(){
-		document.getElementById("iframeVideo").src="";
+		document.getElementById("player").remove();
 		document.getElementById("vidop").style="display:block;";
 		document.getElementById("vided").style="display:none;";
 		flag2=false;
 	}
+	function urlcut(url){
+		if(url.indexOf("https://www.youtube.com/watch?v=") != -1){
+			url=url.replace("https://www.youtube.com/watch?v=","");
+			if(url.indexOf("&")!= -1){var temp=url.split("&");url=temp[0];}
+		}
+		else if(url.indexOf("https://youtu.be/") !=-1){url=url.replace("https://youtu.be/","");}
+		else{return "invalid";} return url;
+	}
 /*-------------------------------------------------------------*/
 /*-------------------------------------------------------------匯出*/
-	var flag1,flag2,flag3=false;
+	var flag1,flag2,flag3,flagjp=false;
 	function gethtml(){
 		if( (flag1==true) && (flag2==true) && (flag3==true) ){
+			var btn=document.getElementById("btn").innerHTML;
+			var checkyo = document.getElementById("boxyo").checked;
+			var checkcn = document.getElementById("boxcn").checked;
+			if(checkyo==false){removesomehtml("yo");removebtn("jpply");flagjp=true;}
+			if(checkcn==false){removesomehtml("cn");removebtn("cnly");}
 			var html=document.getElementById("output").innerHTML;
-			for (var i=1; i<=counter; i++){addSpeakEvent(i);}
-			downloadZ("dlc/dlc.zip","dlc.zip");
+			document.getElementById("btn").innerHTML=btn;restore();
 			downloadF(addhtm(html),fileTitleName+".html");
+			downloadF(timejs(),"time.js");
+			downloadZ("dlc/dlc.zip","dlc.zip");
+			flagjp=false;
 		}else{alert("請確認標題、影片網址、歌詞皆輸入完成");}
+	}
+	function removesomehtml(id){for (var i=1; i<=counter; i++){document.getElementById(id+i).remove();}}
+	function removebtn(id){document.getElementById(id).remove();}
+	function restore(){
+		document.getElementById("parentUl").innerHTML=html_ns;
+		addLostEvent1();
 	}
 	let downloadF = function (content, filename) {
 	        let linkNode = document.createElement('a');
@@ -411,7 +466,11 @@
 		'<title>'+ fileTitleName + '</title>' +
 		'<link href="dlc/style.css" rel="stylesheet" type="text/css" media="all" />'+
 		'<script type="text/javascript" src="dlc/function.js">' + '</' + 'script>' +
-		'</head>' + '<body onload=init(' + counter + '); onresize=detect();>' + htm + '</body>' + '</html>';
+		'</head>' + '<body onload=init(' + counter + ',' + flagjp + '); onresize=detect();>' + htm + '</body>' + '</html>';
+		return txt;
+	}
+	function timejs(){
+		var txt='var timearr=' + JSON.stringify(timearr) + ';';
 		return txt;
 	}
 /*-------------------------------------------------------------*/
@@ -471,11 +530,13 @@
 			setTimeout(loadfile,100);
                	}
         }
+/*-------------------------------------------------------------載入存檔*/
 	function reloadfile(){
 		var txt=document.getElementById("result").innerHTML;
 		convert(txt);
-		btnStyleinit();
+		if(checkfile()==false){alert("並非此程式的存檔");line=0;title=[];link=[];jp=[];yo=[];cn=[];time=[];return;}
 		objectDestructCreative();
+		btnStyleinit();
 		flag1=true;flag2=true;flag3=false;
 		line=0;title=[];link=[];jp=[];yo=[];cn=[];time=[];
 	}
@@ -499,6 +560,9 @@
 					if (innerda[0]=="counter"){line=innerda[1];continue;}
 					for(var j in innerda){RecordData(innerda[0],innerda[j]);}
 	}}}}
+	function checkfile(){
+		return (title[0]=="title")&&(link[0]=="link")&&(jp[0]=="jp")&&(yo[0]=="yo")&&(cn[0]=="cn");
+	}
 /*-------------------------------------------------------------轉換介面物件*/
 	function objectDestructCreative(){
 		document.getElementById("name").remove();
@@ -507,8 +571,17 @@
 		for (var i=1; i<=counter; i++){document.getElementById("LYct"+i).remove();}
 		counter=0; for (var i=1; i<=line; i++){addElementLine("parentUl");}
 		document.getElementById("title").innerHTML=Japanpo(title[1]);
-		pslink=document.getElementById("iframeVideo").src=link[1];
-		timearr=[0];for (var i=1; i<=counter; i++){
+		pslink=link[1];
+		if(urlcut(pslink)!="invalid"){
+			if(getStyle("vidop","display")=="none"){document.getElementById("player").remove();}
+			addObject("video","div","none","player","",non);
+			onYouTubeIframeAPIReady(urlcut(link[1]));
+		}
+		else{	alert("存檔中的網址已失效 請重新輸入");
+			document.getElementById("vidop").style="display:block;";
+			document.getElementById("vided").style="display:none;";
+		}
+		timearr=["秒數"];for (var i=1; i<=counter; i++){
 			document.getElementById("jp"+i).innerHTML =Japanpo(jp[i]);
 			document.getElementById("yo"+i).innerHTML =Japanpo(yo[i]);
 			document.getElementById("cn"+i).innerHTML =Japanpo(cn[i]);
@@ -549,6 +622,10 @@
 <!------------------------------------------------------------->
 </head>
 <body onload=init(); onresize=detect();>
+<div style="width:75px; height:auto; border:1px solid #000; position:absolute; left:60px; top:60px;">
+	<div><input type="checkbox" style="width:auto; height:auto;" checked="checked" id="boxyo"/>平假名</div>
+  	<div><input type="checkbox" style="width:auto; height:auto;" checked="checked" id="boxcn"/>中文</div>
+</div>
 <div>
 	<input style="width:auto; height:auto;" type="button" value="匯出" onclick="gethtml()";/>
 	<input style="width:auto; height:auto;" type="button" value="儲存新檔" onclick="savefile();"/>
@@ -563,16 +640,10 @@
 	<tr><td id="name-td">
 		<div id="name"></div>
 	</td></tr>
-	<tr><td id="video">
-		<div class="limit">
-		<iframe id="iframeVideo" src="" allowFullScreen="true" frameborder=0>
-		</iframe>
-		</div>
-		<div id="ytplayer"></div>
-	</td></tr>
+	<tr><td id="video"></td></tr>
 	<tr><td class="ly">
 		<div>歌詞</div>
-		<table>
+		<table id="btn">
 			<tr>
 			<td><button id="jpcly" onclick=showLY("run",this.id);>振假名</button></td>
 			<td><button id="jply" onclick=showLY("jp",this.id);>日文</button></td>
